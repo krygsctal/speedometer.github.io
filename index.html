@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulasi Dashboard Kendaraan Interactive</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+    body {
+      background-color: #08090c;
+      color: #e2e8f0;
+      font-family: 'Rajdhani', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    .font-digital {
+      font-family: 'Orbitron', monospace;
+    }
+
+    /* Carbon Texture Background */
+    .carbon-bg {
+      background: 
+        radial-gradient(black 15%, transparent 16%) 0 0,
+        radial-gradient(black 15%, transparent 16%) 8px 8px,
+        radial-gradient(rgba(255,255,255,.1) 15%, transparent 20%) 0 1px,
+        radial-gradient(rgba(255,255,255,.1) 15%, transparent 20%) 8px 9px;
+      background-color: #0e1117;
+      background-size: 16px 16px;
+    }
+
+    /* Glow Effects */
+    .glow-amber {
+      filter: drop-shadow(0 0 12px #f59e0b) drop-shadow(0 0 25px #d97706);
+    }
+    
+    .glow-red {
+      filter: drop-shadow(0 0 12px #ef4444) drop-shadow(0 0 25px #dc2626);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+    }
+
+    .turn-signal-off {
+      opacity: 0.15;
+      filter: none;
+    }
+
+    /* Custom Range Input */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1f2937;
+      border-radius: 9999px;
+      height: 8px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+    }
+
+    /* Pedal Button Active State */
+    .pedal-pressed {
+      transform: translateY(6px) scale(0.97) !important;
+      box-shadow: inset 0 4px 10px rgba(0,0,0,0.8) !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-3 sm:p-6 carbon-bg overflow-x-hidden">
+
+  <!-- TOP BAR: Status & Title -->
+  <header class="w-full max-w-5xl flex justify-between items-center bg-gray-900/80 backdrop-blur border border-gray-800 px-6 py-3 rounded-2xl shadow-xl">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-gauge-high text-cyan-400 text-2xl"></i>
+      <h1 class="text-xl sm:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 font-digital">
+        SPORT DASHBOARD
+      </h1>
+    </div>
+    <div class="flex items-center gap-4 text-xs sm:text-sm text-gray-400">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="engineStatusText" class="font-bold text-gray-200">ENGINE READY</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD CLUSTER -->
+  <main class="w-full max-w-5xl my-4 sm:my-8 flex flex-col items-center">
+    
+    <!-- Turn Signals & Warning Light Bar -->
+    <div class="w-full max-w-2xl flex justify-between items-center px-8 mb-4">
+      <!-- Left Signal Arrow -->
+      <button id="signalLeft" onclick="setMode('LEFT')" class="p-2 transition-all duration-100 turn-signal-off focus:outline-none">
+        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-amber-500 fill-current" viewBox="0 0 24 24">
+          <path d="M20,11H7.83l5.59-5.59L12,4l-8,8l8,8l1.41-1.41L7.83,13H20V11z"/>
+        </svg>
+      </button>
+
+      <!-- Center Status Display -->
+      <div class="flex flex-col items-center">
+        <div id="driveModeBadge" class="px-4 py-1 rounded-full text-xs font-bold font-digital tracking-widest bg-gray-800 border border-gray-700 text-cyan-400">
+          AUTOMATIC TRANSMISSION
+        </div>
+        <div id="statusText" class="text-xs text-gray-500 mt-1 font-mono tracking-wider">SYSTEM OK</div>
+      </div>
+
+      <!-- Right Signal Arrow -->
+      <button id="signalRight" onclick="setMode('RIGHT')" class="p-2 transition-all duration-100 turn-signal-off focus:outline-none">
+        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-amber-500 fill-current" viewBox="0 0 24 24">
+          <path d="M12,4l-1.41,1.41L16.17,11H4v2h12.17l-5.58,5.59L12,20l8-8L12,4z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- GAUGES CONTAINER -->
+    <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-6 items-center justify-items-center">
+      
+      <!-- TACHOMETER (RPM GAUGE) -->
+      <div class="relative w-72 h-72 sm:w-80 sm:h-80 bg-gray-950/90 rounded-full border-4 border-gray-800 p-4 shadow-2xl flex flex-col justify-center items-center">
+        <!-- Inner Ring Deco -->
+        <div class="absolute inset-3 border border-gray-800/80 rounded-full"></div>
+        <canvas id="rpmCanvas" width="300" height="300" class="w-full h-full"></canvas>
+
+        <!-- Center Digital RPM -->
+        <div class="absolute bottom-16 flex flex-col items-center">
+          <span id="digitalRpm" class="text-2xl font-black font-digital text-cyan-400">800</span>
+          <span class="text-xs font-semibold text-gray-500 tracking-widest">RPM x1000</span>
+        </div>
+
+        <!-- Dynamic Gear Display -->
+        <div class="absolute bottom-6 flex items-center justify-center">
+          <div id="gearDisplay" class="w-9 h-9 bg-gray-900 border border-cyan-500/50 rounded-lg flex items-center justify-center font-digital font-black text-xl text-cyan-400 shadow-md">
+            1
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEEDOMETER GAUGE -->
+      <div class="relative w-72 h-72 sm:w-80 sm:h-80 bg-gray-950/90 rounded-full border-4 border-gray-800 p-4 shadow-2xl flex flex-col justify-center items-center">
+        <!-- Inner Ring Deco -->
+        <div class="absolute inset-3 border border-gray-800/80 rounded-full"></div>
+        <canvas id="speedCanvas" width="300" height="300" class="w-full h-full"></canvas>
+
+        <!-- Center Digital Speedometer -->
+        <div class="absolute inset-0 flex flex-col justify-center items-center pointer-events-none mt-2">
+          <span id="digitalSpeed" class="text-5xl font-black font-digital text-white tracking-tighter drop-shadow-md">0</span>
+          <span class="text-xs font-bold text-gray-400 tracking-widest mt-1">KM/H</span>
+        </div>
+
+        <!-- Odometers -->
+        <div class="absolute bottom-8 text-[11px] font-mono text-gray-500 tracking-wider">
+          ODO: <span id="odoText" class="text-gray-300">001248</span> KM
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- CONTROLS PANEL -->
+  <footer class="w-full max-w-5xl bg-gray-900/90 border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-2xl backdrop-blur">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+      
+      <!-- Left Column: Signal & Hazard Buttons -->
+      <div class="lg:col-span-4 flex flex-col gap-3">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-cyan-400"></i> Kontrol Lampu Sein & Hazard
+        </span>
+        
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="setMode('LEFT')" class="py-3 px-2 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 border border-gray-700 rounded-xl font-bold text-sm text-gray-200 transition flex flex-col items-center gap-1 shadow">
+            <i class="fa-solid fa-arrow-left text-amber-400"></i>
+            <span>Sein Kiri</span>
+          </button>
+
+          <button id="btnHazard" onclick="setMode('HAZARD')" class="py-3 px-2 bg-red-950/60 hover:bg-red-900/80 active:bg-red-800 border border-red-800/80 rounded-xl font-bold text-sm text-red-200 transition flex flex-col items-center gap-1 shadow">
+            <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+            <span>HAZARD</span>
+          </button>
+
+          <button onclick="setMode('RIGHT')" class="py-3 px-2 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 border border-gray-700 rounded-xl font-bold text-sm text-gray-200 transition flex flex-col items-center gap-1 shadow">
+            <i class="fa-solid fa-arrow-right text-amber-400"></i>
+            <span>Sein Kanan</span>
+          </button>
+        </div>
+
+        <button onclick="setMode('OFF')" class="w-full py-2 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/60 rounded-lg text-xs font-semibold text-gray-400 transition">
+          MATIKAN SEIN (OFF)
+        </button>
+      </div>
+
+      <!-- Center Column: Signal Blink Speed & Audio Settings -->
+      <div class="lg:col-span-4 flex flex-col gap-4 border-t lg:border-t-0 lg:border-l border-gray-800 lg:pl-6 pt-4 lg:pt-0">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-gauge text-cyan-400"></i> Pengaturan Sein & Suara
+        </span>
+
+        <!-- Speed Slider -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex justify-between text-xs text-gray-300 font-medium">
+            <span>Kecepatan Kedipan</span>
+            <span id="speedValue" class="font-mono text-cyan-400">400 ms</span>
+          </div>
+          <input type="range" id="speedSlider" min="150" max="1000" value="400" step="50" oninput="updateBlinkSpeed()" class="w-full">
+          <div class="flex justify-between text-[10px] text-gray-500 font-mono">
+            <span>Cepat (150ms)</span>
+            <span>Lambat (1000ms)</span>
+          </div>
+        </div>
+
+        <!-- Audio Checkboxes -->
+        <div class="flex items-center justify-between bg-gray-950/60 p-2.5 rounded-xl border border-gray-800 text-xs">
+          <label for="soundToggle" class="flex items-center gap-2 cursor-pointer text-gray-300">
+            <input type="checkbox" id="soundToggle" checked class="w-4 h-4 accent-cyan-500 rounded">
+            <span>Suara Relay (Bip)</span>
+          </label>
+          <label for="engineSoundToggle" class="flex items-center gap-2 cursor-pointer text-gray-300">
+            <input type="checkbox" id="engineSoundToggle" checked class="w-4 h-4 accent-cyan-500 rounded">
+            <span>Suara Mesin</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Right Column: Throttle & Brake Pedals -->
+      <div class="lg:col-span-4 flex flex-col gap-3 border-t lg:border-t-0 lg:border-l border-gray-800 lg:pl-6 pt-4 lg:pt-0">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+          <span><i class="fa-solid fa-car text-cyan-400"></i> Kontrol Pedal Gas</span>
+          <span class="text-[10px] text-gray-500 font-mono">Keyboard: SPACE / UP / S</span>
+        </span>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Brake Pedal -->
+          <button id="brakePedal" class="py-5 bg-gradient-to-b from-gray-800 to-gray-900 border-2 border-red-900/60 active:border-red-500 rounded-xl font-black text-sm text-gray-300 shadow-lg transition duration-75 flex flex-col items-center justify-center gap-1 select-none">
+            <i class="fa-solid fa-stop text-red-500 text-lg"></i>
+            <span>REM</span>
+            <span class="text-[9px] font-normal text-gray-500 font-mono">[S / Down]</span>
+          </button>
+
+          <!-- Accelerator Pedal -->
+          <button id="gasPedal" class="py-5 bg-gradient-to-b from-emerald-950 via-emerald-900 to-gray-900 border-2 border-emerald-600/80 active:border-emerald-400 rounded-xl font-black text-sm text-emerald-300 shadow-lg transition duration-75 flex flex-col items-center justify-center gap-1 select-none">
+            <i class="fa-solid fa-bolt text-emerald-400 text-lg animate-bounce"></i>
+            <span>PEDAL GAS</span>
+            <span class="text-[9px] font-normal text-emerald-500/80 font-mono">[SPACE / Up]</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    /* =========================================================================
+       STATE & VARIABLES
+       ========================================================================= */
+    // Vehicle Dynamics
+    let rpm = 800; // Idle RPM
+    let speed = 0; // KM/H
+    let gear = 1;
+    let isGasPressed = false;
+    let isBrakePressed = false;
+    let odoDistance = 1248.0;
+
+    const IDLE_RPM = 800;
+    const MAX_RPM = 8000;
+    const MAX_SPEED = 220;
+
+    // Gear Ratios (Max speed per gear)
+    const gearRatios = [
+      { gear: 1, maxSpeed: 40, shiftUpRpm: 3200, shiftDownRpm: 1200 },
+      { gear: 2, maxSpeed: 70, shiftUpRpm: 3400, shiftDownRpm: 1800 },
+      { gear: 3, maxSpeed: 110, shiftUpRpm: 3600, shiftDownRpm: 2000 },
+      { gear: 4, maxSpeed: 150, shiftUpRpm: 3800, shiftDownRpm: 2200 },
+      { gear: 5, maxSpeed: 185, shiftUpRpm: 4000, shiftDownRpm: 2400 },
+      { gear: 6, maxSpeed: 220, shiftUpRpm: 8000, shiftDownRpm: 2500 }
+    ];
+
+    // Turn Signals & Hazard State
+    let currentSignalMode = 'OFF'; // 'OFF', 'LEFT', 'RIGHT', 'HAZARD'
+    let blinkInterval = null;
+    let isLightOn = false;
+    let blinkSpeedMs = 400;
+
+    // Canvas Elements
+    const rpmCanvas = document.getElementById('rpmCanvas');
+    const rpmCtx = rpmCanvas.getContext('2d');
+    const speedCanvas = document.getElementById('speedCanvas');
+    const speedCtx = speedCanvas.getContext('2d');
+
+    // DOM Elements
+    const digitalSpeedEl = document.getElementById('digitalSpeed');
+    const digitalRpmEl = document.getElementById('digitalRpm');
+    const gearDisplayEl = document.getElementById('gearDisplay');
+    const odoTextEl = document.getElementById('odoText');
+    const signalLeftEl = document.getElementById('signalLeft');
+    const signalRightEl = document.getElementById('signalRight');
+    const btnHazardEl = document.getElementById('btnHazard');
+    const statusTextEl = document.getElementById('statusText');
+    const speedSliderEl = document.getElementById('speedSlider');
+    const speedValueEl = document.getElementById('speedValue');
+    const soundToggle = document.getElementById('soundToggle');
+    const engineSoundToggle = document.getElementById('engineSoundToggle');
+    const gasPedalBtn = document.getElementById('gasPedal');
+    const brakePedalBtn = document.getElementById('brakePedal');
+
+    // Web Audio Context & Oscillators
+    let audioCtx = null;
+    let engineOsc = null;
+    let engineGain = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Synth Engine Sound
+        engineOsc = audioCtx.createOscillator();
+        engineGain = audioCtx.createGain();
+
+        engineOsc.type = 'sawtooth';
+        engineOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+        engineGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+
+        engineOsc.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
+        engineOsc.start();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    /* =========================================================================
+       GAUGE RENDERING (CANVAS)
+       ========================================================================= */
+    function drawGauge({ ctx, value, minVal, maxVal, title, unit, redlineStart = null }) {
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const radius = w / 2 - 25;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const startAngle = 0.75 * Math.PI;
+      const endAngle = 2.25 * Math.PI;
+      const totalAngle = endAngle - startAngle;
+
+      // 1. Arc Background Track
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // 2. Redline Zone Arc (if applicable)
+      if (redlineStart !== null) {
+        const redlineAngle = startAngle + ((redlineStart - minVal) / (maxVal - minVal)) * totalAngle;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, redlineAngle, endAngle);
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+
+      // 3. Active Value Arc Glow
+      const valAngle = startAngle + Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1) * totalAngle;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, valAngle);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = value > (redlineStart || maxVal * 0.85) ? '#ef4444' : '#06b6d4';
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.stroke();
+      ctx.shadowBlur = 0; // Reset shadow
+
+      // 4. Tick Marks & Numbers
+      const steps = 8;
+      for (let i = 0; i <= steps; i++) {
+        const angle = startAngle + (i / steps) * totalAngle;
+        const tickVal = Math.round(minVal + (i / steps) * (maxVal - minVal));
+        
+        // Tick Line
+        const innerR = radius - 12;
+        const outerR = radius - 22;
+        const x1 = cx + Math.cos(angle) * innerR;
+        const y1 = cy + Math.sin(angle) * innerR;
+        const x2 = cx + Math.cos(angle) * outerR;
+        const y2 = cy + Math.sin(angle) * outerR;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineWidth = i % 2 === 0 ? 3 : 1.5;
+        ctx.strokeStyle = tickVal >= redlineStart ? '#ef4444' : '#64748b';
+        ctx.stroke();
+
+        // Label Numbers
+        if (i % 2 === 0) {
+          const textR = radius - 34;
+          const tx = cx + Math.cos(angle) * textR;
+          const ty = cy + Math.sin(angle) * textR;
+
+          ctx.font = '700 12px Orbitron';
+          ctx.fillStyle = tickVal >= redlineStart ? '#f87171' : '#94a3b8';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(title === 'RPM' ? tickVal / 1000 : tickVal, tx, ty);
+        }
+      }
+
+      // 5. Needle
+      const needleAngle = startAngle + Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1) * totalAngle;
+      const needleLen = radius - 15;
+      const nx = cx + Math.cos(needleAngle) * needleLen;
+      const ny = cy + Math.sin(needleAngle) * needleLen;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(nx, ny);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#f43f5e';
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Center Pin Cap
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.stroke();
+    }
+
+    function renderGauges() {
+      // Render Tachometer
+      drawGauge({
+        ctx: rpmCtx,
+        value: rpm,
+        minVal: 0,
+        maxVal: MAX_RPM,
+        title: 'RPM',
+        unit: 'x1000',
+        redlineStart: 6500
+      });
+
+      // Render Speedometer
+      drawGauge({
+        ctx: speedCtx,
+        value: speed,
+        minVal: 0,
+        maxVal: MAX_SPEED,
+        title: 'SPEED',
+        unit: 'KM/H',
+        redlineStart: 180
+      });
+    }
+
+    /* =========================================================================
+       VEHICLE PHYSICS & DYNAMICS SIMULATION
+       ========================================================================= */
+    function updateVehiclePhysics() {
+      const currentRatio = gearRatios[gear - 1];
+
+      // Gas Pedal Pressed
+      if (isGasPressed) {
+        // Accelerate RPM
+        rpm += 120;
+
+        // Auto Gear Shifting Up
+        if (gear < 6 && rpm >= currentRatio.shiftUpRpm && speed < currentRatio.maxSpeed) {
+          gear++;
+          rpm -= 1800; // RPM drop on upshift
+        }
+
+        // Calculate Target Speed based on gear and RPM
+        const targetSpeed = (rpm / MAX_RPM) * currentRatio.maxSpeed;
+        if (speed < targetSpeed) {
+          speed += 0.6 + (gear * 0.1);
+        }
+      } else {
+        // Decelerate (Engine Braking or Foot off Gas)
+        if (rpm > IDLE_RPM) {
+          rpm -= isBrakePressed ? 200 : 70;
+        }
+
+        // Brake Pedal Pressed
+        if (isBrakePressed) {
+          speed -= 2.2;
+        } else {
+          // Natural coasting friction
+          speed -= 0.3;
+        }
+
+        // Auto Gear Shifting Down
+        if (gear > 1 && rpm <= currentRatio.shiftDownRpm) {
+          gear--;
+          rpm += 1200; // RPM spike on downshift
+        }
+      }
+
+      // Clamp Values
+      rpm = Math.max(IDLE_RPM, Math.min(MAX_RPM, rpm));
+      speed = Math.max(0, Math.min(MAX_SPEED, speed));
+
+      // Update Odometer when moving
+      if (speed > 0) {
+        odoDistance += (speed / 3600) * 0.05; // Simulate distance
+      }
+
+      // Update DOM UI elements
+      digitalSpeedEl.innerText = Math.round(speed);
+      digitalRpmEl.innerText = Math.round(rpm);
+      gearDisplayEl.innerText = speed === 0 && rpm === IDLE_RPM && !isGasPressed ? 'N' : gear;
+      odoTextEl.innerText = Math.floor(odoDistance).toString().padStart(6, '0');
+
+      // Update Engine Sound Frequency & Gain
+      if (audioCtx && engineOsc && engineSoundToggle.checked) {
+        const baseFreq = 30 + (rpm / MAX_RPM) * 220;
+        engineOsc.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.05);
+        const gainVal = 0.02 + (rpm / MAX_RPM) * 0.08;
+        engineGain.gain.setTargetAtTime(gainVal, audioCtx.currentTime, 0.05);
+      } else if (engineGain) {
+        engineGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+      }
+
+      renderGauges();
+      requestAnimationFrame(updateVehiclePhysics);
+    }
+
+    /* =========================================================================
+       TURN SIGNALS & HAZARD LOGIC
+       ========================================================================= */
+    function setMode(mode) {
+      initAudio();
+      currentSignalMode = mode;
+
+      statusTextEl.innerText = mode === 'OFF' ? 'SYSTEM OK' : `MODE: ${mode}`;
+
+      if (mode === 'HAZARD') {
+        btnHazardEl.classList.add('bg-red-600', 'text-white', 'shadow-red-500/50');
+      } else {
+        btnHazardEl.classList.remove('bg-red-600', 'text-white', 'shadow-red-500/50');
+      }
+
+      clearInterval(blinkInterval);
+      turnOffLights();
+
+      if (mode !== 'OFF') {
+        toggleBlink();
+        blinkInterval = setInterval(toggleBlink, blinkSpeedMs);
+      }
+    }
+
+    function toggleBlink() {
+      isLightOn = !isLightOn;
+
+      if (isLightOn) {
+        if (currentSignalMode === 'LEFT') {
+          signalLeftEl.classList.remove('turn-signal-off');
+          signalLeftEl.classList.add('glow-amber');
+          signalRightEl.classList.add('turn-signal-off');
+          signalRightEl.classList.remove('glow-amber');
+        } else if (currentSignalMode === 'RIGHT') {
+          signalRightEl.classList.remove('turn-signal-off');
+          signalRightEl.classList.add('glow-amber');
+          signalLeftEl.classList.add('turn-signal-off');
+          signalLeftEl.classList.remove('glow-amber');
+        } else if (currentSignalMode === 'HAZARD') {
+          signalLeftEl.classList.remove('turn-signal-off');
+          signalLeftEl.classList.add('glow-amber');
+          signalRightEl.classList.remove('turn-signal-off');
+          signalRightEl.classList.add('glow-amber');
+        }
+        playRelayBeep(true);
+      } else {
+        turnOffLights();
+        playRelayBeep(false);
+      }
+    }
+
+    function turnOffLights() {
+      signalLeftEl.classList.add('turn-signal-off');
+      signalLeftEl.classList.remove('glow-amber');
+      signalRightEl.classList.add('turn-signal-off');
+      signalRightEl.classList.remove('glow-amber');
+      isLightOn = false;
+    }
+
+    function updateBlinkSpeed() {
+      blinkSpeedMs = parseInt(speedSliderEl.value);
+      speedValueEl.innerText = blinkSpeedMs + ' ms';
+
+      if (currentSignalMode !== 'OFF') {
+        clearInterval(blinkInterval);
+        blinkInterval = setInterval(toggleBlink, blinkSpeedMs);
+      }
+    }
+
+    function playRelayBeep(isHighPitch) {
+      if (!soundToggle.checked) return;
+      initAudio();
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(isHighPitch ? 850 : 650, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.04);
+    }
+
+    /* =========================================================================
+       EVENT LISTENERS & INPUT CONTROLS
+       ========================================================================= */
+    // Gas Pedal Touch/Mouse Events
+    function startGas() {
+      initAudio();
+      isGasPressed = true;
+      gasPedalBtn.classList.add('pedal-pressed');
+    }
+
+    function endGas() {
+      isGasPressed = false;
+      gasPedalBtn.classList.remove('pedal-pressed');
+    }
+
+    // Brake Pedal Touch/Mouse Events
+    function startBrake() {
+      initAudio();
+      isBrakePressed = true;
+      brakePedalBtn.classList.add('pedal-pressed');
+    }
+
+    function endBrake() {
+      isBrakePressed = false;
+      brakePedalBtn.classList.remove('pedal-pressed');
+    }
+
+    // Gas Listeners
+    gasPedalBtn.addEventListener('mousedown', startGas);
+    gasPedalBtn.addEventListener('mouseup', endGas);
+    gasPedalBtn.addEventListener('mouseleave', endGas);
+    gasPedalBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startGas(); });
+    gasPedalBtn.addEventListener('touchend', (e) => { e.preventDefault(); endGas(); });
+
+    // Brake Listeners
+    brakePedalBtn.addEventListener('mousedown', startBrake);
+    brakePedalBtn.addEventListener('mouseup', endBrake);
+    brakePedalBtn.addEventListener('mouseleave', endBrake);
+    brakePedalBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startBrake(); });
+    brakePedalBtn.addEventListener('touchend', (e) => { e.preventDefault(); endBrake(); });
+
+    // Keyboard Shortcuts (Space / Arrow Up for Gas, S / Arrow Down for Brake)
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        if (!isGasPressed) startGas();
+      }
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+        if (!isBrakePressed) startBrake();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        endGas();
+      }
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+        endBrake();
+      }
+    });
+
+    // Start Simulation Loop on Load
+    window.onload = function() {
+      renderGauges();
+      requestAnimationFrame(updateVehiclePhysics);
+    };
+  </script>
+</body>
+</html>
